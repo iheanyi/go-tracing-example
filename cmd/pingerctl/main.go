@@ -24,5 +24,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Response successfully received: %v", res.Body)
+	fmt.Printf("Response successfully received: %s", res.Body)
 }
