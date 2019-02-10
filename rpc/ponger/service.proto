@@ -1,0 +1,16 @@
+syntax="proto3";
+package iheanyi.goopentracingexample.ponger;
+option go_package="ponger";
+
+service Ponger {
+  rpc Pong(PongRequest) returns (PongResponse);
+}
+
+message PongRequest {
+ string message = 1;
+ int64 delay = 2;
+}
+
+message PongResponse {
+  string body = 1;
+}
