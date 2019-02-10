@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/iheanyi/go-tracing-example/rpc/pinger"
@@ -15,12 +16,12 @@ func main() {
 	tracer, closer, err := config.Configuration{
 		ServiceName: "pingersrv",
 	}.NewTracer()
+	if err != nil {
+		log.Fatalf("error instantiating tracer: %v", err)
+	}
 	defer closer.Close()
 
 	hooks := ottwirp.NewOpenTracingHooks(tracer)
-
-	// TODO: Add opentracing hooks here
-	twirpHandler := pinger.NewPingerServer(server, nil)
-
-	http.ListenAndServe(":8082", twirpHandler)
+	twirpHandler := pinger.NewPingerServer(server, hooks)
+	log.Fatal(http.ListenAndServe(":8082", twirpHandler))
 }

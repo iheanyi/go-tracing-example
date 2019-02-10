@@ -10,11 +10,10 @@ import (
 )
 
 func main() {
-	client := pinger.NewPingerProtobufClient("http://localhost:80802", &http.Client{})
-	if len(os.Args) == 1 {
-		msg := ""
-	} else {
-		msg := os.Args[1]
+	client := pinger.NewPingerProtobufClient("http://localhost:8082", &http.Client{})
+	msg := ""
+	if len(os.Args) > 1 {
+		msg = os.Args[1]
 	}
 
 	res, err := client.Ping(context.Background(), &pinger.PingRequest{
