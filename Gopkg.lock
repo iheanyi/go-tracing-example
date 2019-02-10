@@ -113,6 +113,7 @@
     "github.com/twitchtv/twirp",
     "github.com/twitchtv/twirp/ctxsetters",
     "github.com/uber/jaeger-client-go/config",
+    "github.com/uber/jaeger-client-go/log",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
