@@ -34,6 +34,8 @@ import url "net/url"
 
 type Pinger interface {
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
+
+	PingPong(context.Context, *PingPongRequest) (*PingPongResponse, error)
 }
 
 // ======================
@@ -42,15 +44,16 @@ type Pinger interface {
 
 type pingerProtobufClient struct {
 	client HTTPClient
-	urls   [1]string
+	urls   [2]string
 }
 
 // NewPingerProtobufClient creates a Protobuf client that implements the Pinger interface.
 // It communicates using Protobuf and can be configured with a custom HTTPClient.
 func NewPingerProtobufClient(addr string, client HTTPClient) Pinger {
 	prefix := urlBase(addr) + PingerPathPrefix
-	urls := [1]string{
+	urls := [2]string{
 		prefix + "Ping",
+		prefix + "PingPong",
 	}
 	if httpClient, ok := client.(*http.Client); ok {
 		return &pingerProtobufClient{
@@ -76,21 +79,34 @@ func (c *pingerProtobufClient) Ping(ctx context.Context, in *PingRequest) (*Ping
 	return out, nil
 }
 
+func (c *pingerProtobufClient) PingPong(ctx context.Context, in *PingPongRequest) (*PingPongResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "iheanyi.goopentracingexample.pinger")
+	ctx = ctxsetters.WithServiceName(ctx, "Pinger")
+	ctx = ctxsetters.WithMethodName(ctx, "PingPong")
+	out := new(PingPongResponse)
+	err := doProtobufRequest(ctx, c.client, c.urls[1], in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ==================
 // Pinger JSON Client
 // ==================
 
 type pingerJSONClient struct {
 	client HTTPClient
-	urls   [1]string
+	urls   [2]string
 }
 
 // NewPingerJSONClient creates a JSON client that implements the Pinger interface.
 // It communicates using JSON and can be configured with a custom HTTPClient.
 func NewPingerJSONClient(addr string, client HTTPClient) Pinger {
 	prefix := urlBase(addr) + PingerPathPrefix
-	urls := [1]string{
+	urls := [2]string{
 		prefix + "Ping",
+		prefix + "PingPong",
 	}
 	if httpClient, ok := client.(*http.Client); ok {
 		return &pingerJSONClient{
@@ -110,6 +126,18 @@ func (c *pingerJSONClient) Ping(ctx context.Context, in *PingRequest) (*PingResp
 	ctx = ctxsetters.WithMethodName(ctx, "Ping")
 	out := new(PingResponse)
 	err := doJSONRequest(ctx, c.client, c.urls[0], in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pingerJSONClient) PingPong(ctx context.Context, in *PingPongRequest) (*PingPongResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "iheanyi.goopentracingexample.pinger")
+	ctx = ctxsetters.WithServiceName(ctx, "Pinger")
+	ctx = ctxsetters.WithMethodName(ctx, "PingPong")
+	out := new(PingPongResponse)
+	err := doJSONRequest(ctx, c.client, c.urls[1], in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +194,9 @@ func (s *pingerServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.URL.Path {
 	case "/twirp/iheanyi.goopentracingexample.pinger.Pinger/Ping":
 		s.servePing(ctx, resp, req)
+		return
+	case "/twirp/iheanyi.goopentracingexample.pinger.Pinger/PingPong":
+		s.servePingPong(ctx, resp, req)
 		return
 	default:
 		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
@@ -296,6 +327,150 @@ func (s *pingerServer) servePingProtobuf(ctx context.Context, resp http.Response
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *PingResponse and nil error while calling Ping. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		err = wrapErr(err, "failed to marshal proto response")
+		s.writeError(ctx, resp, twirp.InternalErrorWith(err))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *pingerServer) servePingPong(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.servePingPongJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.servePingPongProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *pingerServer) servePingPongJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "PingPong")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	reqContent := new(PingPongRequest)
+	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	if err = unmarshaler.Unmarshal(req.Body, reqContent); err != nil {
+		err = wrapErr(err, "failed to parse request json")
+		s.writeError(ctx, resp, twirp.InternalErrorWith(err))
+		return
+	}
+
+	// Call service method
+	var respContent *PingPongResponse
+	func() {
+		defer func() {
+			// In case of a panic, serve a 500 error and then panic.
+			if r := recover(); r != nil {
+				s.writeError(ctx, resp, twirp.InternalError("Internal service panic"))
+				panic(r)
+			}
+		}()
+		respContent, err = s.Pinger.PingPong(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *PingPongResponse and nil error while calling PingPong. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	var buf bytes.Buffer
+	marshaler := &jsonpb.Marshaler{OrigName: true}
+	if err = marshaler.Marshal(&buf, respContent); err != nil {
+		err = wrapErr(err, "failed to marshal json response")
+		s.writeError(ctx, resp, twirp.InternalErrorWith(err))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(http.StatusOK)
+
+	respBytes := buf.Bytes()
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *pingerServer) servePingPongProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "PingPong")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		err = wrapErr(err, "failed to read request body")
+		s.writeError(ctx, resp, twirp.InternalErrorWith(err))
+		return
+	}
+	reqContent := new(PingPongRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		err = wrapErr(err, "failed to parse request proto")
+		s.writeError(ctx, resp, twirp.InternalErrorWith(err))
+		return
+	}
+
+	// Call service method
+	var respContent *PingPongResponse
+	func() {
+		defer func() {
+			// In case of a panic, serve a 500 error and then panic.
+			if r := recover(); r != nil {
+				s.writeError(ctx, resp, twirp.InternalError("Internal service panic"))
+				panic(r)
+			}
+		}()
+		respContent, err = s.Pinger.PingPong(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *PingPongResponse and nil error while calling PingPong. nil responses are not supported"))
 		return
 	}
 
@@ -748,7 +923,7 @@ func callError(ctx context.Context, h *twirp.ServerHooks, err twirp.Error) conte
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 179 bytes of a gzipped FileDescriptorProto
+	// 236 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x28, 0x2a, 0x48, 0xd6,
 	0x2f, 0xc8, 0xcc, 0x4b, 0x4f, 0x2d, 0xd2, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0xd5, 0x2b,
 	0x28, 0xca, 0x2f, 0xc9, 0x17, 0x52, 0xce, 0xcc, 0x48, 0x4d, 0xcc, 0xab, 0xcc, 0xd4, 0x4b, 0xcf,
@@ -756,9 +931,12 @@ var twirpFileDescriptor0 = []byte{
 	0xd5, 0x83, 0x68, 0x51, 0x52, 0xe7, 0xe2, 0x0e, 0xc8, 0xcc, 0x4b, 0x0f, 0x4a, 0x2d, 0x2c, 0x4d,
 	0x2d, 0x2e, 0x11, 0x92, 0xe0, 0x62, 0xcf, 0x4d, 0x2d, 0x2e, 0x4e, 0x4c, 0x4f, 0x95, 0x60, 0x54,
 	0x60, 0xd4, 0xe0, 0x0c, 0x82, 0x71, 0x95, 0x94, 0xb8, 0x78, 0x20, 0x0a, 0x8b, 0x0b, 0xf2, 0xf3,
-	0x8a, 0x53, 0x85, 0x84, 0xb8, 0x58, 0x92, 0xf2, 0x53, 0x2a, 0xa1, 0xca, 0xc0, 0x6c, 0xa3, 0x52,
-	0x2e, 0xb6, 0x00, 0xb0, 0xb1, 0x42, 0xd9, 0x5c, 0x2c, 0x20, 0x96, 0x90, 0x81, 0x1e, 0x11, 0x8e,
-	0xd0, 0x43, 0x72, 0x81, 0x94, 0x21, 0x09, 0x3a, 0x20, 0x4e, 0x71, 0xe2, 0x88, 0x62, 0x83, 0x08,
-	0x27, 0xb1, 0x81, 0x7d, 0x6e, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x08, 0xef, 0xe8, 0x3a, 0x15,
-	0x01, 0x00, 0x00,
+	0x8a, 0x53, 0x85, 0x84, 0xb8, 0x58, 0x92, 0xf2, 0x53, 0x2a, 0xa1, 0xca, 0xc0, 0x6c, 0x25, 0x47,
+	0x2e, 0x7e, 0x90, 0x9a, 0x80, 0x7c, 0x22, 0x0c, 0x14, 0x12, 0xe1, 0x62, 0x4d, 0x49, 0xcd, 0x49,
+	0xac, 0x94, 0x60, 0x52, 0x60, 0xd4, 0x60, 0x0e, 0x82, 0x70, 0x94, 0xd4, 0xb8, 0x04, 0x10, 0x46,
+	0xe0, 0xb6, 0xca, 0xe8, 0x1d, 0x23, 0x17, 0x5b, 0x00, 0xd8, 0x0b, 0x42, 0xd9, 0x5c, 0x2c, 0x20,
+	0x96, 0x90, 0x81, 0x1e, 0x11, 0x1e, 0xd6, 0x43, 0xf2, 0xad, 0x94, 0x21, 0x09, 0x3a, 0xa0, 0x6e,
+	0x29, 0xe7, 0xe2, 0x80, 0xb9, 0x4f, 0xc8, 0x84, 0x68, 0xed, 0x48, 0x21, 0x22, 0x65, 0x4a, 0xa2,
+	0x2e, 0x88, 0xc5, 0x4e, 0x1c, 0x51, 0x6c, 0x10, 0xa9, 0x24, 0x36, 0x70, 0xf4, 0x1a, 0x03, 0x02,
+	0x00, 0x00, 0xff, 0xff, 0xc8, 0xe2, 0xdc, 0x65, 0xfa, 0x01, 0x00, 0x00,
 }
