@@ -109,6 +109,7 @@
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/iheanyi/twirp-opentracing",
+    "github.com/opentracing/opentracing-go",
     "github.com/twitchtv/twirp",
     "github.com/twitchtv/twirp/ctxsetters",
     "github.com/uber/jaeger-client-go/config",

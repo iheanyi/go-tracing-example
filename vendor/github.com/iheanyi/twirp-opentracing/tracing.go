@@ -2,6 +2,7 @@ package ottwirp
 
 import (
 	"context"
+	"log"
 	"strconv"
 
 	ot "github.com/opentracing/opentracing-go"
@@ -21,9 +22,11 @@ const (
 func NewOpenTracingHooks(tracer ot.Tracer) *twirp.ServerHooks {
 	hooks := &twirp.ServerHooks{}
 
+	log.Print("we in the new hooks")
 	// RequestReceived: Create the initial span that we will use for the duration
 	// of the request.
 	hooks.RequestReceived = func(ctx context.Context) (context.Context, error) {
+		log.Println("We in the span.")
 		// Create the initial span, it won't have a method name just yet.
 		span, ctx := ot.StartSpanFromContext(ctx, RequestReceivedEvent)
 		if span != nil {
@@ -74,6 +77,8 @@ func NewOpenTracingHooks(tracer ot.Tracer) *twirp.ServerHooks {
 
 			span.Finish()
 		}
+
+		log.Println("We sent the span")
 	}
 
 	// Error: Set "error" as true and log the error event and the human readable
