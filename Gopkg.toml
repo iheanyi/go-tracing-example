@@ -24,6 +24,9 @@
 #   go-tests = true
 #   unused-packages = true
 
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  revision = "8d0c54c1246661d9a51ca0ba455d22116d485eaa"
 
 [prune]
   go-tests = true

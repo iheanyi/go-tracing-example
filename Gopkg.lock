@@ -10,7 +10,7 @@
   revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
-  digest = "1:69148993c8baff35dbb0b5ec92eccb6b75b2b7255a4ad1257be38f51fff8f267"
+  digest = "1:1d82405f30f13f12539bc10a480ac0c8e2a0852d95d568af38ee232a3f4e2d1b"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
@@ -18,8 +18,7 @@
     "ptypes/struct",
   ]
   pruneopts = "UT"
-  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
-  version = "v1.2.0"
+  revision = "8d0c54c1246661d9a51ca0ba455d22116d485eaa"
 
 [[projects]]
   branch = "master"

@@ -2,4 +2,4 @@ all: generate
 
 
 generate:
-	protoc --twirp_out=. --go_out=. ./rpc/pinger/service.proto
+	protoc --proto_path=. --twirp_out=. --go_out=. ./rpc/pinger/service.proto
