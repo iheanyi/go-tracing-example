@@ -1,6 +1,6 @@
-syntax="proto3";
-package gotracingexample.rpc.pinger;
-option go_package="pinger";
+syntax = "proto3";
+package iheanyi.goopentracingexample.pinger;
+option go_package = "pinger";
 
 service Pinger {
   rpc Ping(PingRequest) returns (PingResponse);
