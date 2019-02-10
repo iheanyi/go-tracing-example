@@ -21,7 +21,7 @@ func (s *pingerServer) Ping(ctx context.Context, req *pinger.PingRequest) (*ping
 
 	childSpanDemo(ctx)
 	return &pinger.PingResponse{
-		Body: "Pong",
+		Body: "Pong!",
 	}, nil
 }
 
