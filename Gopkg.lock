@@ -50,17 +50,12 @@
   revision = "8d0c54c1246661d9a51ca0ba455d22116d485eaa"
 
 [[projects]]
-  digest = "1:cbeb5c30b75203b493b8b07b69b4d1859f2a3665746d1ee411f81d8a9c92ef80"
-  name = "github.com/grpc-ecosystem/go-grpc-middleware"
-  packages = [
-    ".",
-    "tags",
-    "tracing/opentracing",
-    "util/metautils",
-  ]
+  branch = "master"
+  digest = "1:1a1206efd03a54d336dce7bb8719e74f2f8932f661cb9f57d5813a1d99c083d8"
+  name = "github.com/grpc-ecosystem/grpc-opentracing"
+  packages = ["go/otgrpc"]
   pruneopts = "UT"
-  revision = "c250d6563d4d4c20252cd865923440e829844f4e"
-  version = "v1.0.0"
+  revision = "8e809c8a86450a29b90dcc9efbf062d0fe6d9746"
 
 [[projects]]
   digest = "1:450b7623b185031f3a456801155c8320209f75d0d4c4e633c6b1e59d44d6e392"
@@ -217,7 +212,7 @@
   input-imports = [
     "github.com/alecthomas/kingpin",
     "github.com/golang/protobuf/proto",
-    "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing",
+    "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc",
     "github.com/opentracing/opentracing-go",
     "github.com/uber/jaeger-client-go/config",
     "github.com/uber/jaeger-client-go/log",
