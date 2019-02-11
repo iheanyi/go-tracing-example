@@ -2,11 +2,12 @@ package pingersrv
 
 import (
 	"context"
-	"log"
+	"time"
 
 	"github.com/iheanyi/go-tracing-example/rpc/pinger"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -22,6 +23,8 @@ func New(pongClient ponger.PongerClient) pinger.PingerServer {
 }
 
 func (s *pingerServer) Ping(ctx context.Context, req *pinger.PingRequest) (*pinger.PingResponse, error) {
+	span := opentracing.SpanFromContext(ctx)
+	ext.SamplingPriority.Set(span, 1)
 	if req.Message == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "message cannot be blank")
 	}
@@ -33,13 +36,15 @@ func (s *pingerServer) Ping(ctx context.Context, req *pinger.PingRequest) (*ping
 }
 
 func (s *pingerServer) PingPong(ctx context.Context, req *pinger.PingPongRequest) (*pinger.PingPongResponse, error) {
-
+	span := opentracing.SpanFromContext(ctx)
+	ext.SamplingPriority.Set(span, 1)
 	// Do something here.
 	pongReq := &ponger.PongRequest{
 		Message: req.Message,
 		Delay:   req.Delay,
 	}
 
+	childSpanDemo(ctx)
 	_, err := s.pongClient.Pong(ctx, pongReq)
 	if err != nil {
 		return nil, err
@@ -53,5 +58,5 @@ func (s *pingerServer) PingPong(ctx context.Context, req *pinger.PingPongRequest
 func childSpanDemo(ctx context.Context) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "ChildSpanCall")
 	defer span.Finish()
-	log.Println("We in a child span.")
+	time.Sleep(2 * time.Second)
 }

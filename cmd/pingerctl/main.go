@@ -6,32 +6,53 @@ import (
 	"os"
 
 	kingpin "github.com/alecthomas/kingpin"
-	grpc_opentracing "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/iheanyi/go-tracing-example/rpc/pinger"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-client-go/config"
+	jaegerlog "github.com/uber/jaeger-client-go/log"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	app := kingpin.New("pingerctl", "Tool to interact with ping and pong services")
-	pingCmd(app.Command("ping", "ping pinger service"))
-	pongCmd(app.Command("pong", "ping ponger service"))
-	pingPongCmd(app.Command("ping-pong", "ping both the pinger and ponger services"))
+	os.Setenv("JAEGER_SERVICE_NAME", "pingersrv")
+	// os.Setenv("JAEGER_ENDPOINT", "http://localhost:14268/api/traces")
 
-	_, err := app.Parse(os.Args[1:])
+	cfg, err := config.FromEnv()
+	if err != nil {
+		// parsing errors might happen here, such as when we get a string where we expect a number
+		log.Printf("Could not parse Jaeger env vars: %s", err.Error())
+		return
+	}
+	jLogger := jaegerlog.StdLogger
+
+	tracer, closer, err := cfg.NewTracer(config.Logger(jLogger))
+	if err != nil {
+		log.Fatalf("error instantiating tracer: %v", err)
+	}
+	defer closer.Close()
+	opentracing.SetGlobalTracer(tracer)
+
+	app := kingpin.New("pingerctl", "Tool to interact with ping and pong services")
+	pingCmd(app.Command("ping", "ping pinger service"), tracer)
+	pongCmd(app.Command("pong", "ping ponger service"), tracer)
+	pingPongCmd(app.Command("ping-pong", "ping both the pinger and ponger services"), tracer)
+
+	_, err = app.Parse(os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to run: %v", err)
 	}
 }
 
-func pingCmd(cmd *kingpin.CmdClause) {
+func pingCmd(cmd *kingpin.CmdClause, tracer opentracing.Tracer) {
 	cfg := struct {
 		Message string
 	}{}
 	cmd.Arg("message", "message to send to the service").StringVar(&cfg.Message)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 		if err != nil {
 			log.Fatalf("failed to dial: %v", err)
 		}
@@ -49,7 +70,7 @@ func pingCmd(cmd *kingpin.CmdClause) {
 	})
 }
 
-func pongCmd(cmd *kingpin.CmdClause) {
+func pongCmd(cmd *kingpin.CmdClause, tracer opentracing.Tracer) {
 	cfg := struct {
 		Message string
 		Delay   int64
@@ -58,7 +79,7 @@ func pongCmd(cmd *kingpin.CmdClause) {
 	cmd.Flag("delay", "simulate latency to endpoint").Int64Var(&cfg.Delay)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		conn, err := grpc.Dial("127.0.0.1:8083", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		conn, err := grpc.Dial("127.0.0.1:8083", grpc.WithInsecure(), grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 		if err != nil {
 			log.Fatalf("failed to dial: %v", err)
 		}
@@ -76,7 +97,7 @@ func pongCmd(cmd *kingpin.CmdClause) {
 	})
 }
 
-func pingPongCmd(cmd *kingpin.CmdClause) {
+func pingPongCmd(cmd *kingpin.CmdClause, tracer opentracing.Tracer) {
 	cfg := struct {
 		Message string
 		Delay   int64
@@ -85,7 +106,7 @@ func pingPongCmd(cmd *kingpin.CmdClause) {
 	cmd.Flag("delay", "delay to simulate latency in the pong service").Int64Var(&cfg.Delay)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 		if err != nil {
 			log.Fatalf("failed to dial: %v", err)
 		}

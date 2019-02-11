@@ -5,7 +5,7 @@ import (
 	"net"
 	"os"
 
-	grpc_opentracing "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
 	"github.com/iheanyi/go-tracing-example/services/pongersrv"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -16,7 +16,6 @@ import (
 
 func main() {
 	os.Setenv("JAEGER_SERVICE_NAME", "pongersrv")
-	os.Setenv("JAEGER_ENDPOINT", "http://localhost:14268/api/traces")
 	os.Setenv("JAEGER_REPORTER_LOG_SPANS", "true")
 
 	cfg, err := config.FromEnv()
@@ -38,7 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create listener: %v", err)
 	}
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpc_opentracing.UnaryServerInterceptor()))
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(tracer)))
 	ponger.RegisterPongerServer(grpcServer, pongersrv.New())
 	grpcServer.Serve(lis)
 }
