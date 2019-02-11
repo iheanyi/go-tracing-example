@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 
 	kingpin "github.com/alecthomas/kingpin"
+	grpc_opentracing "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"github.com/iheanyi/go-tracing-example/rpc/pinger"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -30,7 +31,13 @@ func pingCmd(cmd *kingpin.CmdClause) {
 	cmd.Arg("message", "message to send to the service").StringVar(&cfg.Message)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		client := pinger.NewPingerProtobufClient("http://localhost:8082", &http.Client{})
+		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		if err != nil {
+			log.Fatalf("failed to dial: %v", err)
+		}
+		defer conn.Close()
+
+		client := pinger.NewPingerClient(conn)
 		res, err := client.Ping(context.Background(), &pinger.PingRequest{
 			Message: cfg.Message,
 		})
@@ -51,7 +58,12 @@ func pongCmd(cmd *kingpin.CmdClause) {
 	cmd.Flag("delay", "simulate latency to endpoint").Int64Var(&cfg.Delay)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		client := ponger.NewPongerProtobufClient("http://localhost:8083", &http.Client{})
+		conn, err := grpc.Dial("127.0.0.1:8083", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		if err != nil {
+			log.Fatalf("failed to dial: %v", err)
+		}
+		defer conn.Close()
+		client := ponger.NewPongerClient(conn)
 		res, err := client.Pong(context.Background(), &ponger.PongRequest{
 			Message: cfg.Message,
 			Delay:   cfg.Delay,
@@ -73,7 +85,13 @@ func pingPongCmd(cmd *kingpin.CmdClause) {
 	cmd.Flag("delay", "delay to simulate latency in the pong service").Int64Var(&cfg.Delay)
 
 	cmd.Action(func(*kingpin.ParseContext) error {
-		client := pinger.NewPingerProtobufClient("http://localhost:8082", &http.Client{})
+		conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithInsecure(), grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()))
+		if err != nil {
+			log.Fatalf("failed to dial: %v", err)
+		}
+		defer conn.Close()
+
+		client := pinger.NewPingerClient(conn)
 		res, err := client.PingPong(context.Background(), &pinger.PingPongRequest{
 			Message: cfg.Message,
 			Delay:   cfg.Delay,

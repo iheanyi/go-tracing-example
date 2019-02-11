@@ -4,8 +4,10 @@
 package pinger
 
 import (
+	context "context"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	grpc "google.golang.org/grpc"
 	math "math"
 )
 
@@ -210,4 +212,109 @@ var fileDescriptor_665d02c26c5f0711 = []byte{
 	0x29, 0xe7, 0xe2, 0x80, 0xb9, 0x4f, 0xc8, 0x84, 0x68, 0xed, 0x48, 0x21, 0x22, 0x65, 0x4a, 0xa2,
 	0x2e, 0x88, 0xc5, 0x4e, 0x1c, 0x51, 0x6c, 0x10, 0xa9, 0x24, 0x36, 0x70, 0xf4, 0x1a, 0x03, 0x02,
 	0x00, 0x00, 0xff, 0xff, 0xc8, 0xe2, 0xdc, 0x65, 0xfa, 0x01, 0x00, 0x00,
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// PingerClient is the client API for Pinger service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type PingerClient interface {
+	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
+	PingPong(ctx context.Context, in *PingPongRequest, opts ...grpc.CallOption) (*PingPongResponse, error)
+}
+
+type pingerClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewPingerClient(cc *grpc.ClientConn) PingerClient {
+	return &pingerClient{cc}
+}
+
+func (c *pingerClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
+	out := new(PingResponse)
+	err := c.cc.Invoke(ctx, "/iheanyi.goopentracingexample.pinger.Pinger/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pingerClient) PingPong(ctx context.Context, in *PingPongRequest, opts ...grpc.CallOption) (*PingPongResponse, error) {
+	out := new(PingPongResponse)
+	err := c.cc.Invoke(ctx, "/iheanyi.goopentracingexample.pinger.Pinger/PingPong", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PingerServer is the server API for Pinger service.
+type PingerServer interface {
+	Ping(context.Context, *PingRequest) (*PingResponse, error)
+	PingPong(context.Context, *PingPongRequest) (*PingPongResponse, error)
+}
+
+func RegisterPingerServer(s *grpc.Server, srv PingerServer) {
+	s.RegisterService(&_Pinger_serviceDesc, srv)
+}
+
+func _Pinger_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PingerServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iheanyi.goopentracingexample.pinger.Pinger/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PingerServer).Ping(ctx, req.(*PingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Pinger_PingPong_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingPongRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PingerServer).PingPong(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iheanyi.goopentracingexample.pinger.Pinger/PingPong",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PingerServer).PingPong(ctx, req.(*PingPongRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _Pinger_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "iheanyi.goopentracingexample.pinger.Pinger",
+	HandlerType: (*PingerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ping",
+			Handler:    _Pinger_Ping_Handler,
+		},
+		{
+			MethodName: "PingPong",
+			Handler:    _Pinger_PingPong_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "rpc/pinger/service.proto",
 }

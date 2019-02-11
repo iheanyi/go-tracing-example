@@ -2,15 +2,16 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"net"
 	"os"
 
+	grpc_opentracing "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
 	"github.com/iheanyi/go-tracing-example/services/pongersrv"
-	ottwirp "github.com/iheanyi/twirp-opentracing"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -33,8 +34,11 @@ func main() {
 	defer closer.Close()
 	opentracing.SetGlobalTracer(tracer)
 
-	hooks := ottwirp.NewOpenTracingHooks(tracer)
-	server := pongersrv.New()
-	twirpHandler := ponger.NewPongerServer(server, hooks)
-	log.Fatal(http.ListenAndServe(":8083", twirpHandler))
+	lis, err := net.Listen("tcp", "localhost:8083")
+	if err != nil {
+		log.Fatalf("failed to create listener: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpc_opentracing.UnaryServerInterceptor()))
+	ponger.RegisterPongerServer(grpcServer, pongersrv.New())
+	grpcServer.Serve(lis)
 }

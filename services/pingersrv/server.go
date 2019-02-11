@@ -7,14 +7,15 @@ import (
 	"github.com/iheanyi/go-tracing-example/rpc/pinger"
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/twitchtv/twirp"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type pingerServer struct {
-	pongClient ponger.Ponger
+	pongClient ponger.PongerClient
 }
 
-func New(pongClient ponger.Ponger) pinger.Pinger {
+func New(pongClient ponger.PongerClient) pinger.PingerServer {
 	return &pingerServer{
 		pongClient: pongClient,
 	}
@@ -22,7 +23,7 @@ func New(pongClient ponger.Ponger) pinger.Pinger {
 
 func (s *pingerServer) Ping(ctx context.Context, req *pinger.PingRequest) (*pinger.PingResponse, error) {
 	if req.Message == "" {
-		return nil, twirp.InvalidArgumentError("message", "this can't be blank")
+		return nil, status.Errorf(codes.InvalidArgument, "message cannot be blank")
 	}
 
 	childSpanDemo(ctx)
