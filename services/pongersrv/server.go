@@ -5,16 +5,19 @@ import (
 	"time"
 
 	"github.com/iheanyi/go-tracing-example/rpc/ponger"
+	"github.com/twitchtv/twirp"
 )
 
-type pongerServer struct {
-}
+type pongerServer struct{}
 
 func New() ponger.Ponger {
 	return &pongerServer{}
 }
 
 func (s *pongerServer) Pong(ctx context.Context, req *ponger.PongRequest) (*ponger.PongResponse, error) {
+	if req.Message == "" {
+		return nil, twirp.InvalidArgumentError("message", "this can't be blank")
+	}
 	if req.Delay > 0 {
 		time.Sleep(time.Duration(req.Delay) * time.Second)
 	}
