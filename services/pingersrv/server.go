@@ -29,7 +29,7 @@ func (s *pingerServer) Ping(ctx context.Context, req *pinger.PingRequest) (*ping
 		return nil, status.Errorf(codes.InvalidArgument, "message cannot be blank")
 	}
 
-	childSpanDemo(ctx)
+	childSpanCall(ctx)
 	return &pinger.PingResponse{
 		Body: "Pong!",
 	}, nil
@@ -44,7 +44,7 @@ func (s *pingerServer) PingPong(ctx context.Context, req *pinger.PingPongRequest
 		Delay:   req.Delay,
 	}
 
-	childSpanDemo(ctx)
+	childSpanCall(ctx)
 	_, err := s.pongClient.Pong(ctx, pongReq)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (s *pingerServer) PingPong(ctx context.Context, req *pinger.PingPongRequest
 	}, nil
 }
 
-func childSpanDemo(ctx context.Context) {
+func childSpanCall(ctx context.Context) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "ChildSpanCall")
 	defer span.Finish()
 	time.Sleep(2 * time.Second)
